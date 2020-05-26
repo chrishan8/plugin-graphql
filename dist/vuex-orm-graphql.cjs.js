@@ -8097,12 +8097,13 @@ var Model = /** @class */ (function () {
             return true;
         }
         // Create a list of all relations that have to be eager loaded
-        var eagerLoadList = this.baseModel.eagerLoad || [];
-        Array.prototype.push.apply(eagerLoadList, this.baseModel.eagerSync || []);
+        var eagerLoad = this.baseModel.eagerLoad || new Map();
+        Array.prototype.push.apply(Array.from(eagerLoad.keys()), this.baseModel.eagerSync || []);
         // Check if the name of the related model or the fieldName is included in the eagerLoadList.
-        return (eagerLoadList.find(function (n) {
-            return n === relatedModel.singularName || n === relatedModel.pluralName || n === fieldName;
-        }) !== undefined);
+        var related = eagerLoad.get(relatedModel.singularName) ||
+            eagerLoad.get(relatedModel.pluralName) ||
+            eagerLoad.get(fieldName);
+        return related !== undefined;
     };
     /**
      * Determines if we should eager save (means: add as a field in the graphql mutation) a related entity. belongsTo
@@ -15131,7 +15132,9 @@ var QueryBuilder = /** @class */ (function () {
                 }
             });
             if (!first) {
-                if (!signature && filter && Context.getInstance().adapter.getArgumentMode() === exports.ArgumentMode.TYPE)
+                if (!signature &&
+                    filter &&
+                    Context.getInstance().adapter.getArgumentMode() === exports.ArgumentMode.TYPE)
                     returnValue = "filter: { " + returnValue + " }";
                 returnValue = "(" + returnValue + ")";
             }
@@ -15236,7 +15239,9 @@ var QueryBuilder = /** @class */ (function () {
             if (model.shouldEagerLoadRelation(name, field, relatedModel) && !ignore) {
                 var newPath = path.slice(0);
                 newPath.push(relatedModel.singularName);
-                relationQueries.push(_this.buildField(relatedModel, Model.isConnection(field), undefined, newPath, name, false));
+                var eagerLoad = model.baseModel.eagerLoad ? model.baseModel.eagerLoad.get(name) : null;
+                var filter = eagerLoad ? eagerLoad.filter : null;
+                relationQueries.push(_this.buildField(relatedModel, Model.isConnection(field), filter, newPath, name, !!filter));
             }
         });
         return relationQueries.join("\n");
@@ -15481,9 +15486,10 @@ var Fetch = /** @class */ (function (_super) {
      * @param {any} state The Vuex state
      * @param {DispatchFunction} dispatch Vuex Dispatch method for the model
      * @param {ActionParams} params Optional params to send with the query
+     * @param {Map<string, ActionParams>} eagerLoad Optional related fields to eager load
      * @returns {Promise<Data>} The fetched records as hash
      */
-    Fetch.call = function (_a, params) {
+    Fetch.call = function (_a, params, eagerLoad) {
         var state = _a.state, dispatch = _a.dispatch;
         return __awaiter(this, void 0, void 0, function () {
             var context, model, mockReturnValue, filter, bypassCache, multiple, name, query, data;
@@ -15896,7 +15902,7 @@ var VuexORMGraphQL = /** @class */ (function () {
     VuexORMGraphQL.setupModelMethods = function () {
         var context = Context.getInstance();
         // Register static model convenience methods
-        context.components.Model.fetch = function (filter, bypassCache) {
+        context.components.Model.fetch = function (filter, eagerLoad, bypassCache) {
             if (bypassCache === void 0) { bypassCache = false; }
             return __awaiter(this, void 0, void 0, function () {
                 var filterObj;
@@ -15905,7 +15911,7 @@ var VuexORMGraphQL = /** @class */ (function () {
                     if (!isPlainObject(filterObj)) {
                         filterObj = { id: filter };
                     }
-                    return [2 /*return*/, this.dispatch("fetch", { filter: filterObj, bypassCache: bypassCache })];
+                    return [2 /*return*/, this.dispatch("fetch", { filter: filterObj, eagerLoad: eagerLoad, bypassCache: bypassCache })];
                 });
             });
         };

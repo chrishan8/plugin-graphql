@@ -21,6 +21,7 @@ export interface Options {
 export interface ActionParams {
     commit?: any;
     dispatch?: DispatchFunction;
+    eagerLoad?: Map<string, ActionParams>;
     getters?: any;
     rootGetters?: any;
     rootState?: any;
@@ -71,12 +72,12 @@ export interface Field {
     foreignKey?: string;
 }
 export declare class PatchedModel extends ORMModel {
-    static eagerLoad?: Array<String>;
+    static eagerLoad?: Map<string, ActionParams>;
     static eagerSave?: Array<String>;
     static eagerSync?: Array<String>;
     static skipFields?: Array<String>;
     $isPersisted: boolean;
-    static fetch(filter?: any, bypassCache?: boolean): Promise<any>;
+    static fetch(filter?: any, eagerLoad?: Map<string, ActionParams>, bypassCache?: boolean): Promise<any>;
     static mutate(params: ActionParams): Promise<any>;
     static customQuery(params: ActionParams): Promise<any>;
     $mutate(params: ActionParams): Promise<any>;

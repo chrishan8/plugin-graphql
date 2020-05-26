@@ -1,5 +1,5 @@
 import { Model as ORMModel, Relation } from "@vuex-orm/core";
-import { Field, PatchedModel } from "../support/interfaces";
+import { Field, PatchedModel, ActionParams } from "../support/interfaces";
 import Context from "../common/context";
 import { Mock, MockOptions } from "../test-utils";
 import { pluralize, singularize, pick, isEqual, toNumber } from "../support/utils";
@@ -295,15 +295,16 @@ export default class Model {
     }
 
     // Create a list of all relations that have to be eager loaded
-    const eagerLoadList: Array<String> = this.baseModel.eagerLoad || [];
-    Array.prototype.push.apply(eagerLoadList, this.baseModel.eagerSync || []);
+    const eagerLoad: Map<string, ActionParams> =
+      this.baseModel.eagerLoad || new Map<string, ActionParams>();
+    Array.prototype.push.apply(Array.from(eagerLoad.keys()), this.baseModel.eagerSync || []);
 
     // Check if the name of the related model or the fieldName is included in the eagerLoadList.
-    return (
-      eagerLoadList.find(n => {
-        return n === relatedModel.singularName || n === relatedModel.pluralName || n === fieldName;
-      }) !== undefined
-    );
+    const related =
+      eagerLoad.get(relatedModel.singularName) ||
+      eagerLoad.get(relatedModel.pluralName) ||
+      eagerLoad.get(fieldName);
+    return related !== undefined;
   }
 
   /**

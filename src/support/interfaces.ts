@@ -23,6 +23,7 @@ export interface Options {
 export interface ActionParams {
   commit?: any;
   dispatch?: DispatchFunction;
+  eagerLoad?: Map<string, ActionParams>;
   getters?: any;
   rootGetters?: any;
   rootState?: any;
@@ -82,14 +83,18 @@ export interface Field {
 }
 
 export class PatchedModel extends ORMModel {
-  static eagerLoad?: Array<String>;
+  static eagerLoad?: Map<string, ActionParams>;
   static eagerSave?: Array<String>;
   static eagerSync?: Array<String>;
   static skipFields?: Array<String>;
 
   $isPersisted: boolean = false;
 
-  static async fetch(filter?: any, bypassCache: boolean = false): Promise<any> {
+  static async fetch(
+    filter?: any,
+    eagerLoad?: Map<string, ActionParams>,
+    bypassCache: boolean = false
+  ): Promise<any> {
     return undefined;
   }
   static async mutate(params: ActionParams): Promise<any> {

@@ -209,9 +209,7 @@ export default class QueryBuilder {
               /* istanbul ignore next */
               if (!arg) {
                 throw new Error(
-                  `The argument ${key} is of type array but it's not possible to determine the type, because it's not in the field ${
-                    field.name
-                  }`
+                  `The argument ${key} is of type array but it's not possible to determine the type, because it's not in the field ${field.name}`
                 );
               }
 
@@ -240,7 +238,12 @@ export default class QueryBuilder {
       });
 
       if (!first) {
-        if (!signature && filter && Context.getInstance().adapter.getArgumentMode() === ArgumentMode.TYPE) returnValue = `filter: { ${returnValue} }`;
+        if (
+          !signature &&
+          filter &&
+          Context.getInstance().adapter.getArgumentMode() === ArgumentMode.TYPE
+        )
+          returnValue = `filter: { ${returnValue} }`;
         returnValue = `(${returnValue})`;
       }
     }
@@ -373,15 +376,17 @@ export default class QueryBuilder {
       if (model.shouldEagerLoadRelation(name, field, relatedModel) && !ignore) {
         const newPath = path.slice(0);
         newPath.push(relatedModel.singularName);
+        const eagerLoad = model.baseModel.eagerLoad ? model.baseModel.eagerLoad.get(name) : null;
+        const filter = eagerLoad ? eagerLoad.filter : null;
 
         relationQueries.push(
           this.buildField(
             relatedModel,
             Model.isConnection(field as Field),
-            undefined,
+            filter as Arguments,
             newPath,
             name,
-            false
+            !!filter
           )
         );
       }

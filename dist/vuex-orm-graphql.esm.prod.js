@@ -7979,12 +7979,13 @@ class Model {
             return true;
         }
         // Create a list of all relations that have to be eager loaded
-        const eagerLoadList = this.baseModel.eagerLoad || [];
-        Array.prototype.push.apply(eagerLoadList, this.baseModel.eagerSync || []);
+        const eagerLoad = this.baseModel.eagerLoad || new Map();
+        Array.prototype.push.apply(Array.from(eagerLoad.keys()), this.baseModel.eagerSync || []);
         // Check if the name of the related model or the fieldName is included in the eagerLoadList.
-        return (eagerLoadList.find(n => {
-            return n === relatedModel.singularName || n === relatedModel.pluralName || n === fieldName;
-        }) !== undefined);
+        const related = eagerLoad.get(relatedModel.singularName) ||
+            eagerLoad.get(relatedModel.pluralName) ||
+            eagerLoad.get(fieldName);
+        return related !== undefined;
     }
     /**
      * Determines if we should eager save (means: add as a field in the graphql mutation) a related entity. belongsTo
@@ -15144,7 +15145,9 @@ class QueryBuilder {
                 }
             });
             if (!first) {
-                if (!signature && filter && Context.getInstance().adapter.getArgumentMode() === ArgumentMode.TYPE)
+                if (!signature &&
+                    filter &&
+                    Context.getInstance().adapter.getArgumentMode() === ArgumentMode.TYPE)
                     returnValue = `filter: { ${returnValue} }`;
                 returnValue = `(${returnValue})`;
             }
@@ -15247,7 +15250,9 @@ class QueryBuilder {
             if (model.shouldEagerLoadRelation(name, field, relatedModel) && !ignore) {
                 const newPath = path.slice(0);
                 newPath.push(relatedModel.singularName);
-                relationQueries.push(this.buildField(relatedModel, Model.isConnection(field), undefined, newPath, name, false));
+                const eagerLoad = model.baseModel.eagerLoad ? model.baseModel.eagerLoad.get(name) : null;
+                const filter = eagerLoad ? eagerLoad.filter : null;
+                relationQueries.push(this.buildField(relatedModel, Model.isConnection(field), filter, newPath, name, !!filter));
             }
         });
         return relationQueries.join("\n");
@@ -15433,9 +15438,10 @@ class Fetch extends Action {
      * @param {any} state The Vuex state
      * @param {DispatchFunction} dispatch Vuex Dispatch method for the model
      * @param {ActionParams} params Optional params to send with the query
+     * @param {Map<string, ActionParams>} eagerLoad Optional related fields to eager load
      * @returns {Promise<Data>} The fetched records as hash
      */
-    static async call({ state, dispatch }, params) {
+    static async call({ state, dispatch }, params, eagerLoad) {
         const context = Context.getInstance();
         const model = this.getModelFromState(state);
         const mockReturnValue = model.$mockHook("fetch", {
@@ -15741,12 +15747,12 @@ class VuexORMGraphQL {
     static setupModelMethods() {
         const context = Context.getInstance();
         // Register static model convenience methods
-        context.components.Model.fetch = async function (filter, bypassCache = false) {
+        context.components.Model.fetch = async function (filter, eagerLoad, bypassCache = false) {
             let filterObj = filter;
             if (!isPlainObject(filterObj)) {
                 filterObj = { id: filter };
             }
-            return this.dispatch("fetch", { filter: filterObj, bypassCache });
+            return this.dispatch("fetch", { filter: filterObj, eagerLoad, bypassCache });
         };
         context.components.Model.mutate = async function (params) {
             return this.dispatch("mutate", params);
